@@ -29,3 +29,28 @@ test("beta form exposes accessible validation", async ({ page }) => {
   await page.getByRole("button", { name: "Request access" }).click();
   await expect(page.getByText("Enter your name.")).toBeVisible();
 });
+
+test("signup requires legal consent and keeps marketing optional", async ({ page }) => {
+  await page.goto("/sign-up");
+  const createAccount = page.getByRole("button", { name: "Create account" });
+  const google = page.getByRole("button", { name: "Continue with Google" });
+  await expect(createAccount).toBeDisabled();
+  await expect(google).toBeDisabled();
+  const legal = page.getByRole("checkbox", { name: /I agree to the Terms/ });
+  const marketing = page.getByRole("checkbox", { name: /Send me occasional JusCAD product updates/ });
+  await expect(legal).not.toBeChecked();
+  await expect(marketing).not.toBeChecked();
+  await legal.check();
+  await expect(createAccount).toBeEnabled();
+  await expect(google).toBeEnabled();
+});
+
+test("beta newsletter opt-in is optional", async ({ page }) => {
+  await page.goto("/beta");
+  await expect(page.getByRole("checkbox", { name: /product and beta updates/ })).not.toBeChecked();
+});
+
+test("invalid unsubscribe links fail safely", async ({ page }) => {
+  await page.goto("/unsubscribe?token=invalid");
+  await expect(page.getByRole("heading", { name: "This link is no longer valid." })).toBeVisible();
+});

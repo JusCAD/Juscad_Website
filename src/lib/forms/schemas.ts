@@ -13,6 +13,7 @@ export const betaApplicationSchema = z.object({
   email: z.string().trim().toLowerCase().email("Enter a valid email address.").max(254),
   role: text(100), organization: text(160), operating_system: text(80),
   feature_requests: text(500), whatYouBuild: text(2000), frustration: text(2000),
+  marketingOptIn: z.boolean().optional().default(false),
   ...spamFields,
 });
 

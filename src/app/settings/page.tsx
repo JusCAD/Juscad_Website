@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
-import { deleteAccount, signOut, updateAccount } from "./actions";
+import { deleteAccount, signOut, subscribeToUpdates, unsubscribeFromUpdates, updateAccount } from "./actions";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export const metadata: Metadata = { title: "Settings — JusCAD", robots: { index: false, follow: false } };
 
@@ -16,10 +17,15 @@ const NOTICES: Record<string, string> = {
   "delete-confirmation": "Enter your complete email address to confirm deletion.",
   "delete-failed": "Account deletion failed. Contact enquire@juscad.com.",
   "not-configured": "This service is not configured yet.",
+  "mailing-subscribed": "You are subscribed to JusCAD product updates.",
+  "mailing-unsubscribed": "You have been unsubscribed from product updates.",
+  "mailing-failed": "We could not update your email preference. Please try again.",
 };
 
 export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ notice?: string }> }) {
   const viewer = await requireUser();
+  const admin = createAdminClient();
+  const { data: mailing } = admin ? await admin.from("mailing_subscriptions").select("status").eq("user_id", viewer.user.id).maybeSingle() : { data: null };
   const { notice } = await searchParams;
   return (
     <main className="relative z-10 min-h-[100dvh] bg-canvas pt-28 pb-24 md:pt-36">
@@ -54,6 +60,15 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
             <p className="type-tech text-muted mb-3">Security</p>
             <p className="type-body text-muted mb-6">Signing out clears this browser session.</p>
             <form action={signOut}><button type="submit" className="btn btn-secondary">Sign out</button></form>
+          </section>
+
+          <section className="panel p-6 md:p-8">
+            <p className="type-tech text-muted mb-3">Email updates</p>
+            <p className="type-body text-muted mb-2">Occasional product and beta news from JusCAD.</p>
+            <p className="field-help mb-6">Status: {mailing?.status === "subscribed" ? "Subscribed" : "Not subscribed"}</p>
+            <form action={mailing?.status === "subscribed" ? unsubscribeFromUpdates : subscribeToUpdates}>
+              <button type="submit" className="btn btn-secondary">{mailing?.status === "subscribed" ? "Unsubscribe" : "Subscribe"}</button>
+            </form>
           </section>
 
           <section className="panel p-6 md:p-8 border-danger/40">

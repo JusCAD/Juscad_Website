@@ -6,6 +6,7 @@ import { z } from "zod";
 import { requireUser } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { subscribeToMailingList, unsubscribeFromMailingList } from "@/lib/mailing";
 
 const accountSchema = z.object({
   displayName: z.string().trim().min(2).max(100),
@@ -37,6 +38,25 @@ export async function signOut() {
   const supabase = await createClient();
   await supabase?.auth.signOut();
   redirect("/sign-in");
+}
+
+export async function subscribeToUpdates() {
+  const viewer = await requireUser();
+  if (!viewer.user.email) redirect("/settings?notice=mailing-failed");
+  const result = await subscribeToMailingList({ email: viewer.user.email, userId: viewer.user.id, source: "settings", name: viewer.displayName });
+  revalidatePath("/settings");
+  redirect(`/settings?notice=${result.ok ? "mailing-subscribed" : "mailing-failed"}`);
+}
+
+export async function unsubscribeFromUpdates() {
+  const viewer = await requireUser();
+  const admin = createAdminClient();
+  if (!admin) redirect("/settings?notice=mailing-failed");
+  const { data: subscription } = await admin.from("mailing_subscriptions").select("*").eq("user_id", viewer.user.id).maybeSingle();
+  if (!subscription) redirect("/settings?notice=mailing-unsubscribed");
+  const result = await unsubscribeFromMailingList(subscription);
+  revalidatePath("/settings");
+  redirect(`/settings?notice=${result.ok ? "mailing-unsubscribed" : "mailing-failed"}`);
 }
 
 export async function deleteAccount(formData: FormData) {

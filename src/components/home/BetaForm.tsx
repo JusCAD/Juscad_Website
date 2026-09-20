@@ -61,18 +61,19 @@ function Field({
   );
 }
 
-export default function BetaForm() {
+export default function BetaForm({ initialName = "", initialEmail = "", existingStatus }: { initialName?: string; initialEmail?: string; existingStatus?: string }) {
   const sectionRef = useRef<HTMLDivElement>(null);
   const isInView = useInView(sectionRef, { amount: 0.1, once: true });
   const [formState, setFormState] = useState<FormState>("idle");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState("");
   const [turnstileToken, setTurnstileToken] = useState("");
+  const [marketingOptIn, setMarketingOptIn] = useState(false);
   const startedAt = useRef(0);
 
   const [fields, setFields] = useState({
-    name: "",
-    email: "",
+    name: initialName,
+    email: initialEmail,
     role: "",
     organization: "",
     operating_system: "",
@@ -82,7 +83,7 @@ export default function BetaForm() {
   });
 
   function validate() {
-    const result = betaApplicationSchema.safeParse({ ...fields, website: "", startedAt: startedAt.current || Date.now(), turnstileToken });
+    const result = betaApplicationSchema.safeParse({ ...fields, marketingOptIn, website: "", startedAt: startedAt.current || Date.now(), turnstileToken });
     const errs: Record<string, string> = {};
     if (!result.success) result.error.issues.forEach((issue) => { const key = String(issue.path[0] ?? "form"); if (!errs[key]) errs[key] = issue.message; });
     return errs;
@@ -103,7 +104,7 @@ export default function BetaForm() {
       const res = await fetch("/api/beta", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...fields, website: "", startedAt: startedAt.current || Date.now(), turnstileToken }),
+        body: JSON.stringify({ ...fields, marketingOptIn, website: "", startedAt: startedAt.current || Date.now(), turnstileToken }),
       });
       const result = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(result.error ?? "Submission failed.");
@@ -158,7 +159,13 @@ export default function BetaForm() {
             animate={isInView ? { opacity: 1, y: 0 } : {}}
             transition={{ duration: 0.7, delay: 0.15, ease: EASE }}
           >
-            {formState === "success" ? (
+            {existingStatus ? (
+              <div className="panel p-8 md:p-12" role="status">
+                <p className="status status-ok mb-6">Application already received</p>
+                <p className="type-small text-fg mb-4">Status: {existingStatus}</p>
+                <p className="type-body text-muted measure-narrow">You do not need to submit another application. We will contact you when its status changes.</p>
+              </div>
+            ) : formState === "success" ? (
               <div className="panel p-8 md:p-12" role="status">
                 <p className="status status-ok mb-6">
                   <span aria-hidden="true">✓</span>
@@ -336,6 +343,11 @@ export default function BetaForm() {
                 )}
 
                 <SpamProtection onToken={setTurnstileToken} />
+
+                <label className="consent-row">
+                  <input type="checkbox" checked={marketingOptIn} onChange={(event) => setMarketingOptIn(event.target.checked)} />
+                  <span>Send me occasional JusCAD product and beta updates. I can unsubscribe at any time. <em>Optional</em></span>
+                </label>
 
                 <div className="pt-2">
                   <button

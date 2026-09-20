@@ -9,11 +9,13 @@ import { track } from "@vercel/analytics";
 
 type Mode = "sign-in" | "sign-up" | "forgot" | "reset";
 
-export function AuthForm({ mode, next = "/settings" }: { mode: Mode; next?: string }) {
+export function AuthForm({ mode, next = "/settings", initialError }: { mode: Mode; next?: string; initialError?: string }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(initialError ?? null);
+  const [legalAccepted, setLegalAccepted] = useState(false);
+  const [marketingOptIn, setMarketingOptIn] = useState(false);
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -44,15 +46,10 @@ export function AuthForm({ mode, next = "/settings" }: { mode: Mode; next?: stri
         router.push(next.startsWith("/") ? next : "/settings");
         router.refresh();
       } else if (mode === "sign-up") {
-        const { error: authError } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: { full_name: fullName },
-            emailRedirectTo: `${window.location.origin}/auth/callback?next=/settings`,
-          },
-        });
-        if (authError) throw authError;
+        if (!legalAccepted) throw new Error("Accept the Terms and Privacy Policy to create an account.");
+        const response = await fetch("/api/auth/sign-up", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password, fullName, legalAccepted, marketingOptIn }) });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.error ?? "Account creation failed.");
         track("account_created", { method: "email" });
         setMessage("Check your inbox to verify your email, then sign in.");
       } else if (mode === "forgot") {
@@ -82,8 +79,24 @@ export function AuthForm({ mode, next = "/settings" }: { mode: Mode; next?: stri
       setLoading(false);
       return;
     }
-    const supabase = createClient();
     track("sign_in_started", { method: "google" });
+    if (mode === "sign-up") {
+      if (!legalAccepted) {
+        setError("Accept the Terms and Privacy Policy to create an account.");
+        setLoading(false);
+        return;
+      }
+      const response = await fetch("/api/auth/google", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ legalAccepted, marketingOptIn }) });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result.url) {
+        setError(result.error ?? "Google sign-in could not start.");
+        setLoading(false);
+        return;
+      }
+      window.location.assign(result.url);
+      return;
+    }
+    const supabase = createClient();
     const { error: authError } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: { redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}` },
@@ -101,7 +114,7 @@ export function AuthForm({ mode, next = "/settings" }: { mode: Mode; next?: stri
     <div>
       {(mode === "sign-in" || mode === "sign-up") && (
         <>
-          <button type="button" onClick={signInWithGoogle} disabled={loading} className="btn btn-secondary w-full">
+          <button type="button" onClick={signInWithGoogle} disabled={loading || (mode === "sign-up" && !legalAccepted)} className="btn btn-secondary w-full">
             Continue with Google
           </button>
           <div className="my-6 flex items-center gap-4" aria-hidden="true">
@@ -128,9 +141,22 @@ export function AuthForm({ mode, next = "/settings" }: { mode: Mode; next?: stri
             <input id="auth-password" name="password" type="password" autoComplete={mode === "sign-in" ? "current-password" : "new-password"} className="field-input" minLength={8} required />
           </div>
         )}
+        {mode === "sign-up" && (
+          <fieldset className="flex flex-col gap-4">
+            <legend className="sr-only">Registration consent</legend>
+            <label className="consent-row">
+              <input type="checkbox" checked={legalAccepted} onChange={(event) => setLegalAccepted(event.target.checked)} required />
+              <span>I agree to the <Link href="/terms" target="_blank">Terms and Conditions</Link> and <Link href="/privacy" target="_blank">Privacy Policy</Link>. <strong>Required</strong></span>
+            </label>
+            <label className="consent-row">
+              <input type="checkbox" checked={marketingOptIn} onChange={(event) => setMarketingOptIn(event.target.checked)} />
+              <span>Send me occasional JusCAD product updates. I can unsubscribe at any time. <em>Optional</em></span>
+            </label>
+          </fieldset>
+        )}
         {error && <p className="status status-error" role="alert">{error}</p>}
         {message && <p className="status status-ok" role="status">{message}</p>}
-        <button className="btn btn-primary w-full" disabled={loading} type="submit">
+        <button className="btn btn-primary w-full" disabled={loading || (mode === "sign-up" && !legalAccepted)} type="submit">
           {loading ? "Working…" : mode === "sign-in" ? "Sign in" : mode === "sign-up" ? "Create account" : mode === "forgot" ? "Send reset link" : "Update password"}
         </button>
       </form>

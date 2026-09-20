@@ -15,7 +15,7 @@ export async function getViewer() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("display_name, role")
+    .select("display_name, role, onboarding_completed_at")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -23,6 +23,7 @@ export async function getViewer() {
     user,
     displayName: profile?.display_name ?? user.user_metadata?.full_name ?? null,
     role: (profile?.role ?? "user") as AppRole,
+    onboardingCompletedAt: profile?.onboarding_completed_at ?? null,
   };
 }
 
