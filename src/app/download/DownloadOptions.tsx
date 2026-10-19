@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import Link from "next/link";
 import { AppleLogo, LinuxLogo, WindowsLogo } from "@phosphor-icons/react";
 import type { PlatformId, Release } from "@/lib/releases";
@@ -20,12 +20,16 @@ function detectPlatform(): PlatformId | null {
   return null;
 }
 
-export function DownloadOptions({ releases, signedIn }: { releases: Release[]; signedIn: boolean }) {
-  const [current, setCurrent] = useState<PlatformId | null>(null);
+function subscribeToPlatform() {
+  return () => {};
+}
 
-  useEffect(() => {
-    setCurrent(detectPlatform());
-  }, []);
+function serverPlatform(): PlatformId | null {
+  return null;
+}
+
+export function DownloadOptions({ releases, signedIn }: { releases: Release[]; signedIn: boolean }) {
+  const current = useSyncExternalStore(subscribeToPlatform, detectPlatform, serverPlatform);
 
   return (
     <div className="grid gap-6 lg:grid-cols-3">
