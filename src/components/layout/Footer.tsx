@@ -6,6 +6,7 @@ const FOOTER_LINKS = {
     { label: "Home", href: "/" },
     { label: "Blog", href: "/blog" },
     { label: "Beta program", href: "/beta" },
+    { label: "Download", href: "/download" },
   ],
   Company: [
     { label: "About", href: "/about" },

@@ -4,6 +4,7 @@ import "@/app/globals.css";
 import { SmoothScrollProvider } from "@/components/providers/SmoothScrollProvider";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import { MotionProvider } from "@/components/providers/MotionProvider";
+import { BetaOptInSync } from "@/components/auth/BetaOptInSync";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import { Analytics } from "@vercel/analytics/next";
@@ -74,6 +75,7 @@ export default function RootLayout({
         <ThemeProvider>
           <MotionProvider>
             <SmoothScrollProvider>
+              <BetaOptInSync />
               <Navbar />
               {children}
               <Footer />

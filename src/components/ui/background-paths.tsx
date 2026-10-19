@@ -15,7 +15,8 @@ export function BackgroundPaths({
   title = "JusCAD",
   ctaLabel = "Join the beta",
   ctaHref = "/beta",
-  ctaDate = "October 15",
+  ctaDate = "Live",
+  downloadHref,
   subtitle,
   subtitle2,
   sponsors,
@@ -26,6 +27,7 @@ export function BackgroundPaths({
   subtitle?: string;
   subtitle2?: string;
   ctaDate?: string;
+  downloadHref?: string;
   sponsors?: Sponsor[];
 }) {
   return (
@@ -95,6 +97,11 @@ export function BackgroundPaths({
               <span className="cta-date">{ctaDate}</span>
               <span aria-hidden="true" className="cta-arrow">→</span>
             </Link>
+            {downloadHref && (
+              <Link href={downloadHref} className="btn btn-secondary">
+                Download
+              </Link>
+            )}
             <Link href="/about" className="btn btn-secondary type-tech font-semibold">
               About JusCAD
             </Link>

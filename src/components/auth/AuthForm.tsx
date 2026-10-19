@@ -9,11 +9,19 @@ import { track } from "@vercel/analytics";
 
 type Mode = "sign-in" | "sign-up" | "forgot" | "reset";
 
+const BETA_OPT_IN_KEY = "juscad-beta-opt-in";
+
+function rememberBetaOptIn() {
+  sessionStorage.setItem(BETA_OPT_IN_KEY, "1");
+}
+
 export function AuthForm({ mode, next = "/settings" }: { mode: Mode; next?: string }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [betaAgreed, setBetaAgreed] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const needsBetaOptIn = mode === "sign-in" || mode === "sign-up";
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -37,19 +45,24 @@ export function AuthForm({ mode, next = "/settings" }: { mode: Mode; next?: stri
       if (showEmail && !/^\S+@\S+\.\S+$/.test(email)) throw new Error("Enter a valid email address.");
       if (showPassword && password.length < 8) throw new Error("Use at least 8 characters.");
       if (mode === "sign-up" && fullName.length < 2) throw new Error("Enter your name.");
+      if (needsBetaOptIn && !betaAgreed) throw new Error("Agree to join the JusCAD beta to continue.");
       if (mode === "sign-in") {
         const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
         if (authError) throw authError;
+        rememberBetaOptIn();
+        await supabase.auth.updateUser({ data: { beta_opt_in: true } });
         track("sign_in_completed", { method: "email" });
         router.push(next.startsWith("/") ? next : "/settings");
         router.refresh();
       } else if (mode === "sign-up") {
+        rememberBetaOptIn();
+        const destination = next.startsWith("/") && !next.startsWith("//") ? next : "/settings";
         const { error: authError } = await supabase.auth.signUp({
           email,
           password,
           options: {
-            data: { full_name: fullName },
-            emailRedirectTo: `${window.location.origin}/auth/callback?next=/settings`,
+            data: { full_name: fullName, beta_opt_in: true },
+            emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(destination)}`,
           },
         });
         if (authError) throw authError;
@@ -82,6 +95,12 @@ export function AuthForm({ mode, next = "/settings" }: { mode: Mode; next?: stri
       setLoading(false);
       return;
     }
+    if (needsBetaOptIn && !betaAgreed) {
+      setError("Agree to join the JusCAD beta to continue.");
+      setLoading(false);
+      return;
+    }
+    rememberBetaOptIn();
     const supabase = createClient();
     track("sign_in_started", { method: "google" });
     const { error: authError } = await supabase.auth.signInWithOAuth({
@@ -99,9 +118,21 @@ export function AuthForm({ mode, next = "/settings" }: { mode: Mode; next?: stri
 
   return (
     <div>
+      {needsBetaOptIn && (
+        <label className="mb-6 flex items-start gap-3 text-sm text-muted">
+          <input
+            type="checkbox"
+            className="mt-1"
+            checked={betaAgreed}
+            onChange={(event) => setBetaAgreed(event.target.checked)}
+            required
+          />
+          <span>I agree to join the JusCAD beta. A new account is approved automatically. Signing in alone does not join the beta.</span>
+        </label>
+      )}
       {(mode === "sign-in" || mode === "sign-up") && (
         <>
-          <button type="button" onClick={signInWithGoogle} disabled={loading} className="btn btn-secondary w-full">
+          <button type="button" onClick={signInWithGoogle} disabled={loading || !betaAgreed} className="btn btn-secondary w-full">
             Continue with Google
           </button>
           <div className="my-6 flex items-center gap-4" aria-hidden="true">
@@ -135,7 +166,7 @@ export function AuthForm({ mode, next = "/settings" }: { mode: Mode; next?: stri
         </button>
       </form>
       <div className="mt-6 flex flex-wrap justify-between gap-3 type-tech-sm text-muted">
-        {mode === "sign-in" && <><Link href="/forgot-password">Forgot password?</Link><Link href="/sign-up">Create account</Link></>}
+        {mode === "sign-in" && <><Link href="/forgot-password">Forgot password?</Link><Link href={`/sign-up?next=${encodeURIComponent(next)}`}>Create account</Link></>}
         {mode === "sign-up" && <Link href="/sign-in">Already have an account?</Link>}
         {(mode === "forgot" || mode === "reset") && <Link href="/sign-in">Back to sign in</Link>}
       </div>

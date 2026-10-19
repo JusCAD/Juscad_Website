@@ -6,7 +6,7 @@ import {
   supabaseUrl,
 } from "@/lib/supabase/config";
 
-const PROTECTED_ROUTES = ["/settings", "/download", "/admin"];
+const PROTECTED_ROUTES = ["/settings", "/admin"];
 
 export async function proxy(request: NextRequest) {
   if (!isSupabaseConfigured) return NextResponse.next({ request });

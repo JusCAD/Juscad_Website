@@ -70,6 +70,9 @@ export default function FinalStatement() {
             <Link href="/beta" className="btn btn-primary">
               Join the beta
             </Link>
+            <Link href="/download" className="btn btn-secondary">
+              Download
+            </Link>
             <Link href="/about" className="btn btn-secondary">
               Read the thesis
             </Link>
